@@ -8,7 +8,7 @@ pipeline {
         REGISTRY = "registry-1.docker.io"
         IMAGE_NAME = "zulkarnen/lgtm-demo"
         IMAGE_TAG = "${env.BUILD_NUMBER}"
-        GIT_SHORT_SHA = ''
+        GIT_SHORT_SHA = ""
     }
 
     options {
@@ -26,12 +26,16 @@ pipeline {
         stage('Git Metadata') {
             steps {
                 script {
-                    env.GIT_SHORT_SHA = sh(
-                        script: "git rev-parse --short HEAD",
-                        returnStdout: true
-                    ).trim()
-
-                    echo "Commit SHA: ${env.GIT_SHORT_SHA}"
+        
+                    echo "GIT_COMMIT=${env.GIT_COMMIT}"
+        
+                    if (!env.GIT_COMMIT) {
+                        error("GIT_COMMIT is empty")
+                    }
+        
+                    env.GIT_SHORT_SHA = env.GIT_COMMIT.take(7)
+        
+                    echo "Short SHA = ${env.GIT_SHORT_SHA}"
                 }
             }
         }
