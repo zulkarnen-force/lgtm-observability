@@ -1,0 +1,31 @@
+tempo:
+  storage:
+    trace:
+      backend: local
+      local:
+        path: /var/tempo/traces
+
+persistence:
+  enabled: true
+  storageClassName: local-path
+  accessModes:
+    - ReadWriteOnce
+  size: 10Gi
+
+service:
+  type: ClusterIP
+
+resources:
+  requests:
+    cpu: 200m
+    memory: 512Mi
+
+  limits:
+    cpu: "1"
+    memory: 1Gi
+
+receivers:
+  otlp:
+    protocols:
+      grpc:
+      http:
