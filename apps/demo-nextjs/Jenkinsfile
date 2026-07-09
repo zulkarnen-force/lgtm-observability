@@ -26,16 +26,12 @@ pipeline {
         stage('Git Metadata') {
             steps {
                 script {
+                    def shortSha = env.GIT_COMMIT.substring(0, 7)
         
-                    echo "GIT_COMMIT=${env.GIT_COMMIT}"
+                    env.GIT_SHORT_SHA = shortSha
         
-                    if (!env.GIT_COMMIT) {
-                        error("GIT_COMMIT is empty")
-                    }
-        
-                    env.GIT_SHORT_SHA = env.GIT_COMMIT.take(7)
-        
-                    echo "Short SHA = ${env.GIT_SHORT_SHA}"
+                    echo "Commit SHA : ${env.GIT_COMMIT}"
+                    echo "Short SHA  : ${env.GIT_SHORT_SHA}"
                 }
             }
         }
