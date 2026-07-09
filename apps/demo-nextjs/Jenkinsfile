@@ -55,9 +55,10 @@ pipeline {
             steps {
                 dir("${APP_DIR}") {
                     sh '''
-                    export BUN_INSTALL="$HOME/.bun"
-                    export PATH="$BUN_INSTALL/bin:$PATH"
-
+                    docker run --rm \
+                    -v "$PWD":/app \
+                    -w /app \
+                    oven/bun:1 \
                     bun install --frozen-lockfile
                     '''
                 }
