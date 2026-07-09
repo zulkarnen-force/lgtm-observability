@@ -36,6 +36,18 @@ pipeline {
             }
         }
 
+stage('Debug') {
+    steps {
+        dir("${APP_DIR}") {
+            sh '''
+            echo "PWD=$(pwd)"
+            ls -la
+            test -f package.json && echo "package.json exists" || echo "package.json missing"
+            '''
+        }
+    }
+}
+
         stage('Install Bun') {
             steps {
                 sh '''
