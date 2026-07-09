@@ -9,6 +9,10 @@ WORKDIR /app
 # Copy package-related files first to leverage Docker's caching mechanism
 COPY package.json bun.lock* ./
 
+# Copy Prisma schema and config (needed by postinstall hook)
+COPY prisma/schema.prisma ./prisma/schema.prisma
+COPY prisma.config.ts ./
+
 # Install project dependencies with frozen lockfile for reproducible builds
 RUN --mount=type=cache,target=/root/.bun/install/cache \
     bun install --no-save --frozen-lockfile
