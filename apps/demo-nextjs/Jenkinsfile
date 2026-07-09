@@ -4,6 +4,7 @@ pipeline {
     }
 
     environment {
+        APP_DIR = "apps/demo-nextjs"
         REGISTRY = "registry-1.docker.io"
         IMAGE_NAME = "zulkarnen/lgtm-demo"
         IMAGE_TAG = "${env.BUILD_NUMBER}"
@@ -52,71 +53,83 @@ pipeline {
 
         stage('Install Dependencies') {
             steps {
-                sh '''
-                export BUN_INSTALL="$HOME/.bun"
-                export PATH="$BUN_INSTALL/bin:$PATH"
-
-                bun install --frozen-lockfile
-                '''
+                dir("${APP_DIR}") {
+                    sh '''
+                    export BUN_INSTALL="$HOME/.bun"
+                    export PATH="$BUN_INSTALL/bin:$PATH"
+    
+                    bun install --frozen-lockfile
+                    '''
+                }
             }
         }
 
         stage('Prisma Generate') {
             steps {
-                sh '''
-                export BUN_INSTALL="$HOME/.bun"
-                export PATH="$BUN_INSTALL/bin:$PATH"
-
-                bunx prisma generate
-                '''
+                dir("${APP_DIR}") {
+                    sh '''
+                    export BUN_INSTALL="$HOME/.bun"
+                    export PATH="$BUN_INSTALL/bin:$PATH"
+    
+                    bunx prisma generate
+                    '''
+                }
             }
         }
 
         stage('Lint') {
             steps {
-                sh '''
-                export BUN_INSTALL="$HOME/.bun"
-                export PATH="$BUN_INSTALL/bin:$PATH"
-
-                bun run lint
-                '''
+                dir("${APP_DIR}") {
+                    sh '''
+                    export BUN_INSTALL="$HOME/.bun"
+                    export PATH="$BUN_INSTALL/bin:$PATH"
+    
+                    bun run lint
+                    '''
+                }
             }
         }
 
         stage('Test') {
             steps {
-                sh '''
-                export BUN_INSTALL="$HOME/.bun"
-                export PATH="$BUN_INSTALL/bin:$PATH"
-
-                if bun run | grep -q test; then
-                    bun test
-                else
-                    echo "No tests found."
-                fi
-                '''
+                dir("${APP_DIR}") {
+                    sh '''
+                    export BUN_INSTALL="$HOME/.bun"
+                    export PATH="$BUN_INSTALL/bin:$PATH"
+    
+                    if bun run | grep -q test; then
+                        bun test
+                    else
+                        echo "No tests found."
+                    fi
+                    '''
+                }
             }
         }
 
         stage('Build Next.js') {
             steps {
-                sh '''
-                export BUN_INSTALL="$HOME/.bun"
-                export PATH="$BUN_INSTALL/bin:$PATH"
-
-                bun run build
-                '''
+                dir("${APP_DIR}") {
+                    sh '''
+                    export BUN_INSTALL="$HOME/.bun"
+                    export PATH="$BUN_INSTALL/bin:$PATH"
+    
+                    bun run build
+                    '''
+                }
             }
         }
 
         stage('Build Docker Image') {
             steps {
-                sh '''
-                docker build \
-                    -t ${IMAGE_NAME}:${IMAGE_TAG} \
-                    -t ${IMAGE_NAME}:${GIT_SHORT_SHA} \
-                    -t ${IMAGE_NAME}:latest .
-                '''
+                dir("${APP_DIR}") {
+                    sh '''
+                    docker build \
+                        -t ${IMAGE_NAME}:${IMAGE_TAG} \
+                        -t ${IMAGE_NAME}:${GIT_SHORT_SHA} \
+                        -t ${IMAGE_NAME}:latest .
+                    '''
+                }
             }
         }
 
