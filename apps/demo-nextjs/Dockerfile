@@ -35,7 +35,7 @@ RUN bun run build
 # =============================================================================
 # Stage 3: Production runner
 # =============================================================================
-FROM oven/bun:1-slim AS runner
+FROM oven/bun:1 AS runner
 
 WORKDIR /app
 
@@ -44,10 +44,6 @@ ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
-
-# Install only curl for health check, then clean up
-RUN apt-get update && apt-get install -y --no-install-recommends curl \
-    && rm -rf /var/lib/apt/lists/*
 
 # Create non-root user for security
 RUN groupadd --system --gid 1001 nodejs \
@@ -74,7 +70,7 @@ EXPOSE 3000
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:3000/api/users || exit 1
+    CMD bun -e "fetch('http://localhost:3000/api/users').then(r => { if (!r.ok) throw new Error('Health check failed'); process.exit(0); }).catch(() => process.exit(1))"
 
 # Start the application
 CMD ["bun", "run", "start"]
