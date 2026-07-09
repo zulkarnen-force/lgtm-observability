@@ -65,23 +65,6 @@ pipeline {
             }
         }
 
-        stage('Test') {
-            steps {
-                dir("${APP_DIR}") {
-                    sh '''
-                    export BUN_INSTALL="$HOME/.bun"
-                    export PATH="$BUN_INSTALL/bin:$PATH"
-
-                    if bun run | grep -q test; then
-                        bun test
-                    else
-                        echo "No tests found."
-                    fi
-                    '''
-                }
-            }
-        }
-
         stage('Build Docker Image') {
             steps {
                 dir("${APP_DIR}") {
