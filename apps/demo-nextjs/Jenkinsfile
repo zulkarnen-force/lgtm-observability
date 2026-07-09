@@ -7,11 +7,11 @@ pipeline {
         REGISTRY = "registry-1.docker.io"
         IMAGE_NAME = "zulkarnen/lgtm-demo"
         IMAGE_TAG = "${env.BUILD_NUMBER}"
+        GIT_SHORT_SHA = ''
     }
 
     options {
         timestamps()
-        ansiColor('xterm')
     }
 
     stages {
@@ -19,6 +19,19 @@ pipeline {
         stage('Checkout') {
             steps {
                 checkout scm
+            }
+        }
+
+        stage('Git Metadata') {
+            steps {
+                script {
+                    env.GIT_SHORT_SHA = sh(
+                        script: "git rev-parse --short HEAD",
+                        returnStdout: true
+                    ).trim()
+
+                    echo "Commit SHA: ${env.GIT_SHORT_SHA}"
+                }
             }
         }
 
@@ -101,6 +114,7 @@ pipeline {
                 sh '''
                 docker build \
                     -t ${IMAGE_NAME}:${IMAGE_TAG} \
+                    -t ${IMAGE_NAME}:${GIT_SHORT_SHA} \
                     -t ${IMAGE_NAME}:latest .
                 '''
             }
