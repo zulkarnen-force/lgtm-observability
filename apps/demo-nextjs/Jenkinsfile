@@ -36,49 +36,6 @@ pipeline {
             }
         }
 
-        stage('Debug') {
-            steps {
-                dir("${APP_DIR}") {
-                    sh '''
-                    echo "PWD=$(pwd)"
-                    ls -la
-                    test -f package.json && echo "package.json exists" || echo "package.json missing"
-                    '''
-                }
-            }
-        }
-
-        stage('Install Dependencies') {
-            steps {
-                dir("${APP_DIR}") {
-                    sh '''
-                    ls -la
-                    docker run --rm \
-                    -v "$(pwd)":/app \
-                    -w /app \
-                    oven/bun:1 \
-                    bun install --frozen-lockfile
-                    '''
-                }
-            }
-        }
-
-        stage('Install Bun') {
-            steps {
-                sh '''
-                if ! command -v bun >/dev/null 2>&1; then
-                    curl -fsSL https://bun.sh/install | bash
-                fi
-
-                export BUN_INSTALL="$HOME/.bun"
-                export PATH="$BUN_INSTALL/bin:$PATH"
-
-                bun --version
-                '''
-            }
-        }
-
-
         stage('Build Docker Image') {
             steps {
                 dir("${APP_DIR}") {
