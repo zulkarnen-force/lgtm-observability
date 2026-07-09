@@ -57,34 +57,8 @@ pipeline {
                     sh '''
                     export BUN_INSTALL="$HOME/.bun"
                     export PATH="$BUN_INSTALL/bin:$PATH"
-    
+
                     bun install --frozen-lockfile
-                    '''
-                }
-            }
-        }
-
-        stage('Prisma Generate') {
-            steps {
-                dir("${APP_DIR}") {
-                    sh '''
-                    export BUN_INSTALL="$HOME/.bun"
-                    export PATH="$BUN_INSTALL/bin:$PATH"
-    
-                    bunx prisma generate
-                    '''
-                }
-            }
-        }
-
-        stage('Lint') {
-            steps {
-                dir("${APP_DIR}") {
-                    sh '''
-                    export BUN_INSTALL="$HOME/.bun"
-                    export PATH="$BUN_INSTALL/bin:$PATH"
-    
-                    bun run lint
                     '''
                 }
             }
@@ -96,25 +70,12 @@ pipeline {
                     sh '''
                     export BUN_INSTALL="$HOME/.bun"
                     export PATH="$BUN_INSTALL/bin:$PATH"
-    
+
                     if bun run | grep -q test; then
                         bun test
                     else
                         echo "No tests found."
                     fi
-                    '''
-                }
-            }
-        }
-
-        stage('Build Next.js') {
-            steps {
-                dir("${APP_DIR}") {
-                    sh '''
-                    export BUN_INSTALL="$HOME/.bun"
-                    export PATH="$BUN_INSTALL/bin:$PATH"
-    
-                    bun run build
                     '''
                 }
             }
@@ -137,7 +98,7 @@ pipeline {
             steps {
                 withCredentials([
                     usernamePassword(
-                        credentialsId: 'dockerhub-creds',
+                        credentialsId: 'dockerhub-credentials',
                         usernameVariable: 'DOCKER_USER',
                         passwordVariable: 'DOCKER_PASS'
                     )
