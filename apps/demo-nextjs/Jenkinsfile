@@ -36,17 +36,17 @@ pipeline {
             }
         }
 
-stage('Debug') {
-    steps {
-        dir("${APP_DIR}") {
-            sh '''
-            echo "PWD=$(pwd)"
-            ls -la
-            test -f package.json && echo "package.json exists" || echo "package.json missing"
-            '''
+        stage('Debug') {
+            steps {
+                dir("${APP_DIR}") {
+                    sh '''
+                    echo "PWD=$(pwd)"
+                    ls -la
+                    test -f package.json && echo "package.json exists" || echo "package.json missing"
+                    '''
+                }
+            }
         }
-    }
-}
 
         stage('Install Bun') {
             steps {
@@ -68,7 +68,7 @@ stage('Debug') {
                 dir("${APP_DIR}") {
                     sh '''
                     docker run --rm \
-                    -v "$PWD":/app \
+                    -v "$(pwd)":/app \
                     -w /app \
                     oven/bun:1 \
                     bun install --frozen-lockfile
