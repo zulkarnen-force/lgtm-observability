@@ -12,9 +12,10 @@ resources:
   limits:
     cpu: 500m
     memory: 512Mi
-    
+
 service:
   type: ClusterIP
+
 config:
   receivers:
     otlp:
@@ -26,6 +27,8 @@ config:
 
   processors:
     batch:
+      timeout: 5s
+      send_batch_size: 1024
     memory_limiter:
       check_interval: 5s
       limit_percentage: 80
@@ -36,6 +39,8 @@ config:
       endpoint: tempo:4317
       tls:
         insecure: true
+    debug:
+      verbosity: basic
 
   extensions:
     health_check:
@@ -54,3 +59,4 @@ config:
           - batch
         exporters:
           - otlp
+          - debug

@@ -1,0 +1,149 @@
+pipeline {
+    agent {
+        label "docker-agent-label"
+    }
+
+    environment {
+        REGISTRY = "registry-1.docker.io"
+        IMAGE_NAME = "zulkarnen/lgtm-demo"
+        IMAGE_TAG = "${env.BUILD_NUMBER}"
+    }
+
+    options {
+        timestamps()
+        ansiColor('xterm')
+    }
+
+    stages {
+
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+
+        stage('Install Bun') {
+            steps {
+                sh '''
+                if ! command -v bun >/dev/null 2>&1; then
+                    curl -fsSL https://bun.sh/install | bash
+                fi
+
+                export BUN_INSTALL="$HOME/.bun"
+                export PATH="$BUN_INSTALL/bin:$PATH"
+
+                bun --version
+                '''
+            }
+        }
+
+        stage('Install Dependencies') {
+            steps {
+                sh '''
+                export BUN_INSTALL="$HOME/.bun"
+                export PATH="$BUN_INSTALL/bin:$PATH"
+
+                bun install --frozen-lockfile
+                '''
+            }
+        }
+
+        stage('Prisma Generate') {
+            steps {
+                sh '''
+                export BUN_INSTALL="$HOME/.bun"
+                export PATH="$BUN_INSTALL/bin:$PATH"
+
+                bunx prisma generate
+                '''
+            }
+        }
+
+        stage('Lint') {
+            steps {
+                sh '''
+                export BUN_INSTALL="$HOME/.bun"
+                export PATH="$BUN_INSTALL/bin:$PATH"
+
+                bun run lint
+                '''
+            }
+        }
+
+        stage('Test') {
+            steps {
+                sh '''
+                export BUN_INSTALL="$HOME/.bun"
+                export PATH="$BUN_INSTALL/bin:$PATH"
+
+                if bun run | grep -q test; then
+                    bun test
+                else
+                    echo "No tests found."
+                fi
+                '''
+            }
+        }
+
+        stage('Build Next.js') {
+            steps {
+                sh '''
+                export BUN_INSTALL="$HOME/.bun"
+                export PATH="$BUN_INSTALL/bin:$PATH"
+
+                bun run build
+                '''
+            }
+        }
+
+        stage('Build Docker Image') {
+            steps {
+                sh '''
+                docker build \
+                    -t ${IMAGE_NAME}:${IMAGE_TAG} \
+                    -t ${IMAGE_NAME}:latest .
+                '''
+            }
+        }
+
+        stage('Push Docker Image') {
+            steps {
+                withCredentials([
+                    usernamePassword(
+                        credentialsId: 'dockerhub-creds',
+                        usernameVariable: 'DOCKER_USER',
+                        passwordVariable: 'DOCKER_PASS'
+                    )
+                ]) {
+
+                    sh '''
+                    echo "$DOCKER_PASS" | docker login \
+                        -u "$DOCKER_USER" \
+                        --password-stdin
+
+                    docker push ${IMAGE_NAME}:${IMAGE_TAG}
+
+                    docker push ${IMAGE_NAME}:latest
+                    '''
+                }
+            }
+        }
+
+    }
+
+    post {
+
+        success {
+            echo "Pipeline completed successfully."
+        }
+
+        failure {
+            echo "Pipeline failed."
+        }
+
+        always {
+            cleanWs()
+        }
+
+    }
+}
