@@ -26,10 +26,11 @@ pipeline {
         stage('Git Metadata') {
             steps {
                 script {
-                env.GIT_SHORT_SHA = sh(
-                    script: 'git rev-parse --short HEAD',
-                        returnStdout: true
-                    ).trim()
+                    def shortSha = sh(script: 'git rev-parse --short HEAD', returnStdout: true).trim()
+                    if (!shortSha) {
+                        error "Failed to retrieve git short SHA"
+                    }
+                    env.GIT_SHORT_SHA = shortSha
                     echo "Short SHA  : ${env.GIT_SHORT_SHA}"
                 }
             }
