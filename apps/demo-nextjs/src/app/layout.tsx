@@ -23,7 +23,7 @@ export default function RootLayout({
           <header className="border-b">
             <div className="container mx-auto flex h-14 items-center px-4">
               <Link href="/" className="mr-6 font-semibold">
-                Demo App
+                PT Bentang Inspirasi Teknologi
               </Link>
               <nav className="flex gap-4">
                 <Link
