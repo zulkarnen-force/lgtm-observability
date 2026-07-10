@@ -4,6 +4,7 @@
 FROM oven/bun:1 AS builder
 
 WORKDIR /app
+ENV DATABASE_URL="postgresql://postgres:postgres@localhost:5432/demo?schema=public"
 
 # Copy source code and dependencies (already installed on host)
 # Copy package-related files first to leverage Docker's caching mechanism
@@ -18,12 +19,12 @@ RUN --mount=type=cache,target=/root/.bun/install/cache \
     bun install --no-save --frozen-lockfile
 
 # Generate Prisma client (needs DATABASE_URL from prisma.config.ts)
-ENV DATABASE_URL="postgresql://postgres:postgres@localhost:5432/demo?schema=public"
 RUN bunx prisma generate
 
 # Build Next.js application
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_ENV=production
+COPY . .
 RUN bun run build
 
 # =============================================================================
