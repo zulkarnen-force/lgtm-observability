@@ -12,7 +12,7 @@ export default function Home() {
       <div>
         <h1 className="text-3xl font-bold">Demo App</h1>
         <p className="text-muted-foreground">
-          Next.js + Prisma + shadcn/ui + K3s PostgreSQL
+          The Art of Digital Government Transformation
         </p>
       </div>
 
