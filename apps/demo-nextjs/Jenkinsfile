@@ -26,8 +26,8 @@ pipeline {
         stage('Git Metadata') {
             steps {
                 script {
+                    // Extract short SHA and save it to the global environment
                     def shortSha = env.GIT_COMMIT.substring(0, 7)
-
                     env.GIT_SHORT_SHA = shortSha
 
                     echo "Commit SHA : ${env.GIT_COMMIT}"
@@ -38,23 +38,19 @@ pipeline {
 
         stage('Build Docker Image') {
             steps {
-                script {
-                    def shortSha = env.GIT_COMMIT.substring(0, 7)
-
-                    dir(APP_DIR) {
-                        sh """
-                        docker build \
-                        -t ${IMAGE_NAME}:${IMAGE_TAG} \
-                        -t ${IMAGE_NAME}:${shortSha} \
-                        -t ${IMAGE_NAME}:latest .
-                        """
-                    }
+                dir(APP_DIR) {
+                    // Using env.GIT_SHORT_SHA directly
+                    sh """
+                    docker build \
+                    -t ${IMAGE_NAME}:${IMAGE_TAG} \
+                    -t ${IMAGE_NAME}:${env.GIT_SHORT_SHA} \
+                    -t ${IMAGE_NAME}:latest .
+                    """
                 }
             }
         }
+
         stage('Push Docker Image') {
-           def shortSha = env.GIT_COMMIT.substring(0, 7)
-           
             steps {
                 withCredentials([
                     usernamePassword(
@@ -63,14 +59,44 @@ pipeline {
                         passwordVariable: 'DOCKER_PASS'
                     )
                 ]) {
-                    sh '''
-                    echo "$DOCKER_PASS" | docker login \
-                        -u "$DOCKER_USER" \
-                        --password-stdin
+                    sh """
+                    echo "\$DOCKER_PASS" | docker login -u "\$DOCKER_USER" --password-stdin
                     docker push ${IMAGE_NAME}:${IMAGE_TAG}
-                    docker push ${IMAGE_NAME}:${shortSha}
+                    docker push ${IMAGE_NAME}:${env.GIT_SHORT_SHA}
                     docker push ${IMAGE_NAME}:latest
-                    '''
+                    """
+                }
+            }
+        }
+
+        stage('GitOps Handoff (Update Dev)') {
+            steps {
+                withCredentials([
+                    // You must create this credential in Jenkins containing your GitHub PAT
+                    usernamePassword(
+                        credentialsId: 'github-credentials',
+                        usernameVariable: 'GIT_USER',
+                        passwordVariable: 'GIT_PASS'
+                    )
+                ]) {
+                    sh """
+                    # 1. Setup Git configuration
+                    git config --global user.name "Jenkins CI"
+                    git config --global user.email "jenkins@zulkarnen-force.local"
+
+                    # 2. Clone the GitOps repository
+                    git clone https://${GIT_USER}:${GIT_PASS}@github.com/zulkarnen-force/demo-gitops-charts.git
+                    cd demo-gitops-charts
+
+                    # 3. Update the image tag in the Dev environment using sed
+                    # This finds the line starting with "tag:" and replaces it with your new short SHA
+                    sed -i "s/tag: .*/tag: '${env.GIT_SHORT_SHA}'/g" overlays/dev/values-dev.yaml
+
+                    # 4. Commit and push back to main
+                    git add overlays/dev/values-dev.yaml
+                    git commit -m "Deploy(dev): Update lgtm-demo to ${env.GIT_SHORT_SHA}"
+                    git push origin main
+                    """
                 }
             }
         }
@@ -78,18 +104,14 @@ pipeline {
     }
 
     post {
-
         success {
-            echo "Pipeline completed successfully."
+            echo "Pipeline completed successfully. ArgoCD will now sync the Dev environment."
         }
-
         failure {
             echo "Pipeline failed."
         }
-
         always {
             cleanWs()
         }
-
     }
 }

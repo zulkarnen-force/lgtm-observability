@@ -4,6 +4,55 @@ grafana:
 alertmanager:
   enabled: true
 
+  # Mount the Telegram bot-token secret into the Alertmanager pod at
+  # /etc/alertmanager/secrets/telegram-bot-token/token
+  alertmanagerSpec:
+    secrets:
+      - telegram-bot-token
+
+  config:
+    global:
+      resolve_timeout: 5m
+    route:
+      receiver: "null"
+      group_by: ["namespace", "alertname"]
+      group_wait: 30s
+      group_interval: 5m
+      repeat_interval: 4h
+      routes:
+        # kube-prometheus-stack's always-firing heartbeat — keep it silent.
+        - receiver: "null"
+          matchers:
+            - alertname = "Watchdog"
+        # Route everything from prod-namespace to Telegram.
+        - receiver: telegram
+          matchers:
+            - namespace = "prod-namespace"
+    receivers:
+      - name: "null"
+      - name: telegram
+        telegram_configs:
+          - bot_token_file: /etc/alertmanager/secrets/telegram-bot-token/token
+            # >>> REPLACE with your Telegram chat/group ID (integer). <<<
+            chat_id: 123456789
+            api_url: https://api.telegram.org
+            parse_mode: HTML
+            send_resolved: true
+            message: |-
+              {{ if eq .Status "firing" }}🔥 <b>FIRING</b>{{ else }}✅ <b>RESOLVED</b>{{ end }} — {{ .CommonLabels.alertname }}
+              {{ range .Alerts }}
+              <b>Severity:</b> {{ .Labels.severity }}
+              <b>Namespace:</b> {{ .Labels.namespace }}{{ if .Labels.pod }}
+              <b>Pod:</b> {{ .Labels.pod }}{{ end }}
+              {{ .Annotations.description }}
+              {{ end }}
+    inhibit_rules:
+      - target_matchers:
+          - severity =~ "warning|info"
+        source_matchers:
+          - severity = "critical"
+        equal: ["namespace", "alertname"]
+
 prometheusOperator:
   enabled: true
 

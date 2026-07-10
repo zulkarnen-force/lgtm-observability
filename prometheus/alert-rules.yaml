@@ -1,0 +1,45 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: prod-namespace-alerts
+  namespace: observability
+  labels:
+    # Required so the kube-prometheus-stack Prometheus (ruleSelector
+    # matchLabels: release=prometheus) actually loads these rules.
+    release: prometheus
+    app.kubernetes.io/part-of: observability
+spec:
+  groups:
+    - name: prod-namespace.rules
+      rules:
+        # ── Alert 1: high memory ─────────────────────────────────────────────
+        # Any pod (i.e. any Deployment's replica) in prod-namespace whose
+        # container working-set memory stays above 200 MiB for 5 minutes.
+        - alert: ProdNamespaceHighMemory
+          expr: |
+            sum by (namespace, pod) (
+              container_memory_working_set_bytes{namespace="prod-namespace", container!="", container!="POD"}
+            ) > 200 * 1024 * 1024
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "High memory in prod-namespace ({{ $labels.pod }})"
+            description: >-
+              Pod {{ $labels.pod }} in namespace {{ $labels.namespace }} is using
+              {{ $value | humanize1024 }}B of memory (threshold: 200 MiB) for over 5m.
+
+        # ── Alert 2: pod down ────────────────────────────────────────────────
+        # A pod in prod-namespace is not Ready (crash-looping, pending, or
+        # failed) for 2 minutes.
+        - alert: ProdNamespacePodDown
+          expr: |
+            kube_pod_status_ready{namespace="prod-namespace", condition="true"} == 0
+          for: 2m
+          labels:
+            severity: critical
+          annotations:
+            summary: "Pod down in prod-namespace ({{ $labels.pod }})"
+            description: >-
+              Pod {{ $labels.pod }} in namespace {{ $labels.namespace }} has been
+              NOT ready for over 2m (crash-loop / pending / failed).
