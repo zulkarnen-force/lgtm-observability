@@ -4,7 +4,7 @@
 FROM oven/bun:1 AS builder
 
 WORKDIR /app
-ENV DATABASE_URL="postgresql://postgres:postgres@localhost:5432/demo?schema=public"
+ENV DATABASE_URL="postgresql://demo:demo123@postgresql.observability.svc.cluster.local:5432/demo?schema=public"
 
 # Copy source code and dependencies (already installed on host)
 # Copy package-related files first to leverage Docker's caching mechanism

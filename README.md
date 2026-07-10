@@ -46,21 +46,14 @@ kubectl create namespace observability
 ### 1. PostgreSQL
 
 ```bash
-helm repo add bitnami https://charts.bitnami.com/bitnami
-helm repo update bitnami
-
 kubectl apply -f postgresql/secret.yaml
-
-helm upgrade \
-  --install postgresql \
-  bitnami/postgresql \
-  -n observability \
-  -f postgresql/values.yaml
+kubectl apply -f postgresql/service.yaml
+kubectl apply -f postgresql/statefulset.yaml
 ```
 
 **Verify:**
 ```bash
-kubectl get pods -n observability -l app.kubernetes.io/name=postgresql
+kubectl get pods -n observability -l app=postgresql
 kubectl port-forward -n observability svc/postgresql 5432:5432
 ```
 
@@ -194,10 +187,10 @@ model Post {
 
 ```env
 # Local development (via port-forward)
-DATABASE_URL="postgresql://postgres:postgres@localhost:5432/demo?schema=public"
+DATABASE_URL="postgresql://demo:demo123@localhost:5432/demo?schema=public"
 
 # In-cluster (when deployed to K3s)
-# DATABASE_URL="postgresql://postgres:***@postgresql.observability.svc.cluster.local:5432/demo"
+# DATABASE_URL="postgresql://demo:***@postgresql.observability.svc.cluster.local:5432/demo"
 ```
 
 ## Project Structure
@@ -229,8 +222,9 @@ k3s/observability/
 ├── otel-collector/
 │   └── values.yaml
 ├── postgresql/
-│   ├── values.yaml
-│   └── secret.yaml
+│   ├── secret.yaml
+│   ├── service.yaml
+│   └── statefulset.yaml
 ├── tempo/
 │   └── values.yaml
 └── README.md
@@ -267,7 +261,7 @@ df -h /
 | Component | Version |
 |---|---|
 | K3s | v1.36.2+k3s1 |
-| PostgreSQL | 18.4 (Bitnami) |
+| PostgreSQL | 16.2 |
 | Next.js | 16.2.10 |
 | React | 19.2.4 |
 | Prisma | 6.19.3 |
