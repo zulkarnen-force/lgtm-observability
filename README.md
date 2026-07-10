@@ -11,7 +11,9 @@ Collector, ArgoCD, and a Next.js demo app.
 | **Traces** | Tempo | Next.js OTel SDK → OTel Collector |
 
 All three are visualized in Grafana. See **[grafana/DASHBOARD-GUIDE.md](grafana/DASHBOARD-GUIDE.md)**
-for the pre-built dashboard and a step-by-step guide.
+for the pre-built dashboard and a step-by-step guide, and
+**[prometheus/ALERTING.md](prometheus/ALERTING.md)** for Prometheus → Alertmanager →
+Telegram alerting.
 
 ## Architecture
 

@@ -26,11 +26,10 @@ pipeline {
         stage('Git Metadata') {
             steps {
                 script {
-                    // Extract short SHA and save it to the global environment
-                    def shortSha = env.GIT_COMMIT.substring(0, 7)
-                    env.GIT_SHORT_SHA = shortSha
-
-                    echo "Commit SHA : ${env.GIT_COMMIT}"
+                env.GIT_SHORT_SHA = sh(
+                    script: 'git rev-parse --short HEAD',
+                        returnStdout: true
+                    ).trim()
                     echo "Short SHA  : ${env.GIT_SHORT_SHA}"
                 }
             }
@@ -70,6 +69,7 @@ pipeline {
         }
 
         stage('GitOps Handoff (Update Dev)') {
+
             steps {
                 withCredentials([
                     // You must create this credential in Jenkins containing your GitHub PAT
