@@ -1,31 +1,35 @@
 # K3s Observability Stack
 
-A complete observability platform on K3s with PostgreSQL, Grafana, Tempo, OpenTelemetry Collector, and a Next.js demo app.
+A complete **three-signal** observability platform on K3s — metrics, logs, and traces —
+with PostgreSQL, Grafana, Prometheus, Loki, Tempo, Grafana Alloy, the OpenTelemetry
+Collector, ArgoCD, and a Next.js demo app.
+
+| Signal | Stored in | Collected by |
+|---|---|---|
+| **Metrics** | Prometheus (kube-prometheus-stack) | node-exporter, kube-state-metrics, cAdvisor, OTel Collector spanmetrics |
+| **Logs** | Loki | Grafana Alloy (DaemonSet, scrapes pod stdout) |
+| **Traces** | Tempo | Next.js OTel SDK → OTel Collector |
+
+All three are visualized in Grafana. See **[grafana/DASHBOARD-GUIDE.md](grafana/DASHBOARD-GUIDE.md)**
+for the pre-built dashboard and a step-by-step guide.
 
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│                     K3s Cluster                         │
-│                                                         │
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐              │
-│  │ Grafana  │  │  Tempo   │  │   OTel   │              │
-│  │  :3000   │  │  :3100   │  │Collector │              │
-│  └────┬─────┘  └────┬─────┘  └────┬─────┘              │
-│       │              │              │                    │
-│       └──────────────┴──────────────┘                    │
-│                      │                                  │
-│              ┌───────┴───────┐                          │
-│              │  PostgreSQL   │                          │
-│              │    :5432      │                          │
-│              └───────┬───────┘                          │
-│                      │                                  │
-│              ┌───────┴───────┐                          │
-│              │  Next.js App  │                          │
-│              │    :3000      │                          │
-│              └───────────────┘                          │
-│                                                         │
-└─────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────┐
+│                              K3s Cluster                               │
+│                                                                        │
+│   demo-nextjs ──OTLP──►  OTel Collector ──┬──traces──►  Tempo          │
+│  (OTel SDK: traces        (spanmetrics)   └──metrics─┐                 │
+│   + metrics)                                         ▼                 │
+│   pod stdout ──►  Alloy ──►  Loki           Prometheus ◄── node/kube   │
+│                              (logs)         (metrics)      /cAdvisor   │
+│                                                                        │
+│          Tempo · Loki · Prometheus  ──────►  Grafana  ◄── dashboards   │
+│                                              :3000       (sidecar CM)  │
+│                                                                        │
+│   PostgreSQL :5432   ◄── demo-nextjs        ArgoCD :80 (GitOps)        │
+└──────────────────────────────────────────────────────────────────────┘
 ```
 
 ## Prerequisites
@@ -35,13 +39,21 @@ A complete observability platform on K3s with PostgreSQL, Grafana, Tempo, OpenTe
 - `helm` for chart installations
 - `bun` v1.3.14+ (for Next.js app)
 
-## Namespace
+## Namespace & Helm repos
 
 ```bash
 kubectl create namespace observability
+
+helm repo add grafana https://grafana.github.io/helm-charts
+helm repo add open-telemetry https://open-telemetry.github.io/opentelemetry-helm-charts
+helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+helm repo add argo https://argoproj.github.io/argo-helm
+helm repo update
 ```
 
 ## Component Installation
+
+Install in this order (later components depend on Prometheus CRDs / Tempo / Loki being up).
 
 ### 1. PostgreSQL
 
@@ -57,37 +69,74 @@ kubectl get pods -n observability -l app=postgresql
 kubectl port-forward -n observability svc/postgresql 5432:5432
 ```
 
-### 2. OpenTelemetry Collector
+### 2. Prometheus (kube-prometheus-stack) — metrics
+
+Installs Prometheus, Alertmanager, the Prometheus Operator (CRDs used by ServiceMonitors),
+node-exporter, and kube-state-metrics. Grafana is disabled here (installed separately).
 
 ```bash
-helm upgrade \
-  --install otel-collector \
-  open-telemetry/opentelemetry-collector \
-  -n observability \
-  -f otel-collector/values.yaml
+helm upgrade --install prometheus prometheus-community/kube-prometheus-stack \
+  -n observability -f prometheus/values.yaml
 ```
 
-### 3. Grafana
+### 3. Loki — logs
 
 ```bash
-helm upgrade \
-  --install grafana \
-  grafana/grafana \
-  -n observability \
-  -f grafana/values.yaml
+helm upgrade --install loki grafana/loki \
+  -n observability -f loki/values.yaml
 ```
 
-**Access:** http://grafana.local (configure DNS or /etc/hosts)
+### 4. Grafana Alloy — log collection
 
-### 4. Tempo
+DaemonSet that scrapes every pod's stdout and pushes to Loki.
 
 ```bash
-helm upgrade \
-  --install tempo \
-  grafana/tempo \
-  -n observability \
-  -f tempo/values.yaml
+helm upgrade --install alloy grafana/alloy \
+  -n observability -f alloy/values.yaml
 ```
+
+### 5. Tempo — traces
+
+```bash
+helm upgrade --install tempo grafana/tempo \
+  -n observability -f tempo/values.yaml
+```
+
+### 6. OpenTelemetry Collector
+
+Receives OTLP from the app, forwards traces to Tempo, and derives RED metrics
+(`traces_span_metrics_*`) via the spanmetrics connector, exposed for Prometheus on :8889.
+
+```bash
+helm upgrade --install otel-collector open-telemetry/opentelemetry-collector \
+  -n observability -f otel-collector/values.yaml
+```
+
+### 7. Grafana
+
+Provisions the Prometheus, Loki, and Tempo data sources and auto-loads dashboards from
+ConfigMaps labeled `grafana_dashboard: "1"` (the sidecar).
+
+```bash
+helm upgrade --install grafana grafana/grafana \
+  -n observability -f grafana/values.yaml
+
+# Load the pre-built cross-signal dashboard
+kubectl apply -f grafana/dashboard-observability-configmap.yaml
+```
+
+**Access:** http://grafana.local (configure DNS or /etc/hosts). Credentials live in the
+`grafana-admin` secret.
+
+### 8. ArgoCD (optional) — GitOps
+
+```bash
+kubectl create namespace argocd
+helm upgrade --install argocd argo/argo-cd \
+  -n argocd -f argocd/values.yaml
+```
+
+**Access:** http://argocd.local
 
 ## Next.js Demo App
 
@@ -267,3 +316,15 @@ df -h /
 | Prisma | 6.19.3 |
 | Bun | 1.3.14 |
 | TypeScript | 5.9.3 |
+
+### Helm charts
+
+| Release | Chart |
+|---|---|
+| prometheus | kube-prometheus-stack-87.12.3 |
+| loki | loki-7.0.0 |
+| alloy | alloy-1.10.0 |
+| tempo | tempo-1.24.4 |
+| otel-collector | opentelemetry-collector-0.164.1 |
+| grafana | grafana-10.5.15 |
+| argocd | argo-cd (namespace `argocd`) |

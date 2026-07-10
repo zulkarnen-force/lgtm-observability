@@ -64,10 +64,26 @@ datasources:
   datasources.yaml:
     apiVersion: 1
     datasources:
+      - name: Prometheus
+        uid: prometheus
+        type: prometheus
+        access: proxy
+        url: http://prometheus-kube-prometheus-prometheus.observability.svc.cluster.local:9090
+        isDefault: true
+        editable: true
+      - name: Loki
+        uid: loki
+        type: loki
+        access: proxy
+        url: http://loki.observability.svc.cluster.local:3100
+        isDefault: false
+        editable: true
       - name: Tempo
+        uid: tempo
         type: tempo
         access: proxy
-        url: http://tempo:3100
+        # Tempo's query API is :3200 (the :3100 port is ingest/distributor).
+        url: http://tempo.observability.svc.cluster.local:3200
         isDefault: false
         editable: true
 
