@@ -16,21 +16,15 @@ pipeline {
     }
 
     stages {
-
         stage('Checkout') {
             steps {
                 checkout scm
-                script {
-                    env.GIT_SHORT_SHA = sh(script: "git rev-parse --short HEAD", returnStdout: true).trim()
-                    echo "Short SHA: ${env.GIT_SHORT_SHA}"
-                }
             }
         }
 
         stage('Build Docker Image') {
             steps {
                 dir(APP_DIR) {
-                    // Using env.GIT_SHORT_SHA directly
                     sh """
                     docker build \
                     -t ${IMAGE_NAME}:${IMAGE_TAG} \
@@ -61,10 +55,8 @@ pipeline {
         }
 
         stage('GitOps Handoff (Update Dev)') {
-
             steps {
                 withCredentials([
-                    // You must create this credential in Jenkins containing your GitHub PAT
                     usernamePassword(
                         credentialsId: 'github-credentials',
                         usernameVariable: 'GIT_USER',
@@ -72,19 +64,17 @@ pipeline {
                     )
                 ]) {
                     sh """
-                    # 1. Setup Git configuration
                     git config --global user.name "Jenkins CI"
                     git config --global user.email "jenkins@zulkarnen-force.local"
 
-                    # 2. Clone the GitOps repository
+                    # Ensure clean directory if workspace is reused
+                    rm -rf demo-gitops-charts
+
                     git clone https://${GIT_USER}:${GIT_PASS}@github.com/zulkarnen-force/demo-gitops-charts.git
                     cd demo-gitops-charts
 
-                    # 3. Update the image tag in the Dev environment using sed
-                    # This finds the line starting with "tag:" and replaces it with your new short SHA
                     sed -i "s/tag: .*/tag: '${env.GIT_SHORT_SHA}'/g" overlays/dev/values-dev.yaml
 
-                    # 4. Commit and push back to main
                     git add overlays/dev/values-dev.yaml
                     git commit -m "Deploy(dev): Update lgtm-demo to ${env.GIT_SHORT_SHA}"
                     git push origin main
@@ -93,11 +83,47 @@ pipeline {
             }
         }
 
+        // --- NEW STAGE: PRODUCTION PROMOTION ---
+        stage('GitOps Handoff (Promote to Prod)') {
+            steps {
+                // 1. The Gate: The pipeline will PAUSE here indefinitely until approved
+                input message: "Approve deployment of ${env.GIT_SHORT_SHA} to PRODUCTION?",
+                      submitter: "admin,release-managers" // Optional: restrict who can click approve
+
+                // 2. The Execution: If approved, it runs the Prod update
+                withCredentials([
+                    usernamePassword(
+                        credentialsId: 'github-credentials',
+                        usernameVariable: 'GIT_USER',
+                        passwordVariable: 'GIT_PASS'
+                    )
+                ]) {
+                    sh """
+                        # We change into the already cloned repo from the previous stage
+                        cd demo-gitops-charts
+
+                        # Pull the latest changes just in case something else merged while we waited
+                        git pull origin main
+
+                        # Update the PROD values file
+                        sed -i "s/tag: .*/tag: '${env.GIT_SHORT_SHA}'/g" overlays/prod/values-prod.yaml
+
+                        # Commit and push
+                        git add overlays/prod/values-prod.yaml
+                        git commit -m "Deploy(prod): Promote lgtm-demo to ${env.GIT_SHORT_SHA}"
+                        git push origin main
+                    """
+                }
+            }
+        }
     }
 
     post {
         success {
-            echo "Pipeline completed successfully. ArgoCD will now sync the Dev environment."
+            echo "Pipeline completed successfully. ArgoCD will now sync the environments."
+        }
+        aborted {
+            echo "Production promotion was rejected/aborted by the user."
         }
         failure {
             echo "Pipeline failed."
