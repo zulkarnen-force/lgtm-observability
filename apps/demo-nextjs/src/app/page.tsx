@@ -10,7 +10,7 @@ export default function Home() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold">Demo App</h1>
+        <h1 className="text-3xl font-bold">PT Bentang Inspirasi Teknologi</h1>
         <p className="text-muted-foreground">
           The Art of Digital Government Transformation
         </p>
