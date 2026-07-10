@@ -38,17 +38,20 @@ pipeline {
 
         stage('Build Docker Image') {
             steps {
-                dir("${APP_DIR}") {
-                    sh '''
-                    docker build \
+                script {
+                    def shortSha = env.GIT_COMMIT.substring(0, 7)
+        
+                    dir(APP_DIR) {
+                        sh """
+                        docker build \
                         -t ${IMAGE_NAME}:${IMAGE_TAG} \
-                        -t ${IMAGE_NAME}:${GIT_SHORT_SHA} \
+                        -t ${IMAGE_NAME}:${shortSha} \
                         -t ${IMAGE_NAME}:latest .
-                    '''
+                        """
+                    }
                 }
             }
         }
-
         stage('Push Docker Image') {
             steps {
                 withCredentials([
