@@ -27,9 +27,9 @@ pipeline {
             steps {
                 script {
                     def shortSha = env.GIT_COMMIT.substring(0, 7)
-        
+
                     env.GIT_SHORT_SHA = shortSha
-        
+
                     echo "Commit SHA : ${env.GIT_COMMIT}"
                     echo "Short SHA  : ${env.GIT_SHORT_SHA}"
                 }
@@ -40,7 +40,7 @@ pipeline {
             steps {
                 script {
                     def shortSha = env.GIT_COMMIT.substring(0, 7)
-        
+
                     dir(APP_DIR) {
                         sh """
                         docker build \
@@ -53,6 +53,8 @@ pipeline {
             }
         }
         stage('Push Docker Image') {
+           def shortSha = env.GIT_COMMIT.substring(0, 7)
+           
             steps {
                 withCredentials([
                     usernamePassword(
@@ -61,14 +63,12 @@ pipeline {
                         passwordVariable: 'DOCKER_PASS'
                     )
                 ]) {
-
                     sh '''
                     echo "$DOCKER_PASS" | docker login \
                         -u "$DOCKER_USER" \
                         --password-stdin
-
                     docker push ${IMAGE_NAME}:${IMAGE_TAG}
-
+                    docker push ${IMAGE_NAME}:${shortSha}
                     docker push ${IMAGE_NAME}:latest
                     '''
                 }
