@@ -21,8 +21,8 @@ pipeline {
             steps {
                 checkout scm
                 script {
-                    GIT_SHORT_SHA = sh(script: "git rev-parse --short HEAD", returnStdout: true).trim()
-                    echo "Short SHA: ${GIT_SHORT_SHA}"
+                    env.GIT_SHORT_SHA = sh(script: "git rev-parse --short HEAD", returnStdout: true).trim()
+                    echo "Short SHA: ${env.GIT_SHORT_SHA}"
                 }
             }
         }
