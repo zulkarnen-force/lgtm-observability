@@ -39,8 +39,14 @@ config:
       endpoint: tempo:4317
       tls:
         insecure: true
+    prometheus:
+      endpoint: "0.0.0.0:8889"
     debug:
       verbosity: basic
+
+  connectors:
+    # Derives RED metrics (request rate, errors, duration) from incoming spans.
+    spanmetrics: {}
 
   extensions:
     health_check:
@@ -60,3 +66,29 @@ config:
         exporters:
           - otlp
           - debug
+          - spanmetrics
+      metrics:
+        receivers:
+          - otlp
+          - spanmetrics
+        processors:
+          - memory_limiter
+          - batch
+        exporters:
+          - prometheus
+          - debug
+
+ports:
+  metrics:
+    enabled: true
+    containerPort: 8889
+    servicePort: 8889
+    protocol: TCP
+
+# Let Prometheus scrape the collector's Prometheus exporter (:8889),
+# which now carries the spanmetrics-derived RED metrics.
+serviceMonitor:
+  enabled: true
+  metricsEndpoints:
+    - port: metrics
+      interval: 30s
