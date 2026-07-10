@@ -8,7 +8,7 @@ const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: "Demo App",
-  description: "Next.js + Prisma + shadcn/ui Demo",
+  description: "Demo test app",
 };
 
 export default function RootLayout({
