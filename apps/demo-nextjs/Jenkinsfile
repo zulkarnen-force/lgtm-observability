@@ -20,26 +20,9 @@ pipeline {
         stage('Checkout') {
             steps {
                 checkout scm
-            }
-        }
-
-        stage('Git Metadata') {
-            steps {
                 script {
-                    def sha = sh(script: 'git rev-parse --short HEAD', returnStdout: true)
-                    echo "Raw SHA output: '${sha}'"
-                    
-                    if (sha != null && sha.trim() != "") {
-                        env.GIT_SHORT_SHA = sha.trim()
-                    } else {
-                        // Fallback: try env.GIT_COMMIT
-                        if (env.GIT_COMMIT != null) {
-                             env.GIT_SHORT_SHA = env.GIT_COMMIT.take(7)
-                        } else {
-                             error "Could not determine git SHA"
-                        }
-                    }
-                    echo "Short SHA  : ${env.GIT_SHORT_SHA}"
+                    GIT_SHORT_SHA = sh(script: "git rev-parse --short HEAD", returnStdout: true).trim()
+                    echo "Short SHA: ${GIT_SHORT_SHA}"
                 }
             }
         }
