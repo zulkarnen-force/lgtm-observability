@@ -32,6 +32,7 @@ pipeline {
                     }
                     env.GIT_SHORT_SHA = shortSha
                     echo "Short SHA  : ${env.GIT_SHORT_SHA}"
+                    echo "Commit SHA : ${env.GIT_COMMIT}"
                 }
             }
         }
